@@ -2,7 +2,8 @@ import queue
 import threading
 import time
 import winsound
-import pyttsx3
+import pythoncom
+import win32com.client
 
 
 class Coach:
@@ -10,21 +11,20 @@ class Coach:
 
     def __init__(self, min_gap=2.0):
         self.jobs = queue.Queue()
-        self.min_gap = min_gap          # seconds before the same cue repeats
+        self.min_gap = min_gap
         self._last = {}
         threading.Thread(target=self._run, daemon=True).start()
 
     def _run(self):
-        # the engine is created INSIDE this thread on purpose - see note below
-        engine = pyttsx3.init()
-        engine.setProperty("rate", 170)
+        pythoncom.CoInitialize()     # COM must be initialised per thread
+        voice = win32com.client.Dispatch("SAPI.SpVoice")
+        voice.Rate = 1               # -10 slowest .. 10 fastest
         while True:
             kind, value = self.jobs.get()
             if kind == "beep":
                 winsound.Beep(value[0], value[1])
             else:
-                engine.say(value)
-                engine.runAndWait()
+                voice.Speak(value)
 
     def _too_soon(self, key):
         now = time.time()
