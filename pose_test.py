@@ -4,6 +4,8 @@ import numpy as np
 import mediapipe as mp
 from collections import deque
 from angles import to_px, calculate_angle
+import sys
+from coach import Coach
 
 mp_pose = mp.solutions.pose
 mp_draw = mp.solutions.drawing_utils
@@ -22,39 +24,32 @@ MIN_PLAUSIBLE = 35      # no bodyweight squat bends the knee tighter than this
 TRUST_VIS     = 0.60    # if vis fell below this mid-rep, don't trust the depth
 
 
-def to_px(landmark, w, h):
-    return [landmark.x * w, landmark.y * h]
-
-
 def leg_visibility(lm, hip_i, knee_i, ankle_i):
     return min(lm[hip_i].visibility,
                lm[knee_i].visibility,
                lm[ankle_i].visibility)
 
 
-def calculate_angle(a, b, c):
-    a, b, c = np.array(a), np.array(b), np.array(c)
-    radians = np.arctan2(c[1] - b[1], c[0] - b[0]) - \
-              np.arctan2(a[1] - b[1], a[0] - b[0])
-    angle = np.abs(radians * 180.0 / np.pi)
-    if angle > 180.0:
-        angle = 360.0 - angle
-    return angle
-
-
 pose = mp_pose.Pose(model_complexity=MODEL_COMPLEXITY,
                     min_detection_confidence=0.5,
                     min_tracking_confidence=0.5)
 
-cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-print(f"capture: {int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))}"
-      f"x{int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))}")
+SOURCE = sys.argv[1] if len(sys.argv) > 1 else None
+
+if SOURCE is None:
+    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    print(f"webcam: {int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))}"
+          f"x{int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))}")
+else:
+    cap = cv2.VideoCapture(SOURCE)
+    print(f"video file: {SOURCE}")
 
 angle_history = deque(maxlen=SMOOTH_WINDOW)
 current_side = "L"
 stage = "up"
+coach = Coach(min_gap=1.0)
 reps = 0
 rejected = 0
 rep_min = 999
@@ -106,6 +101,7 @@ while cap.isOpened():
             angle_history.clear()
             rep_valid = False
             info = f"TRACKING LOST  vis {vis:.2f}"
+            coach.say("I cannot see your legs", key="novis")
         else:
             hip   = to_px(lm[hip_i], w, h)
             knee  = to_px(lm[knee_i], w, h)
@@ -138,25 +134,37 @@ while cap.isOpened():
                                 rejected += 1
                                 verdict = "NOT COUNTED - tracking lost"
                                 verdict_colour = (0, 0, 255)
+                                coach.say("I could not see that rep",
+                                          key="badrep")
                             elif rep_worst_vis < TRUST_VIS:
                                 rejected += 1
                                 verdict = (f"LOW CONFIDENCE - vis fell to "
                                            f"{rep_worst_vis:.2f}")
                                 verdict_colour = (0, 0, 255)
+                                coach.say("I could not see that rep clearly",
+                                          key="badrep")
                             elif rep_min <= GOOD_DEPTH:
                                 reps += 1
                                 verdict = f"GOOD DEPTH ({int(rep_min)})"
                                 verdict_colour = (0, 255, 0)
+                                coach.beep(1000, 120, key="good")
+                                coach.say("Good rep", key="goodsay")
                             elif rep_min <= OK_DEPTH:
                                 reps += 1
                                 verdict = f"ALMOST - deeper ({int(rep_min)})"
                                 verdict_colour = (0, 255, 255)
+                                coach.say("Almost, go a little deeper",
+                                          key="almost")
                             else:
                                 reps += 1
                                 verdict = f"TOO SHALLOW ({int(rep_min)})"
                                 verdict_colour = (0, 165, 255)
+                                coach.beep(400, 300, key="shallow")
+                                coach.say("Too shallow, go deeper",
+                                          key="shallow")
                             print(f"rep end: min={int(rep_min)}  "
                                   f"worst_vis={rep_worst_vis:.2f}  {verdict}")
+                                  
 
     cv2.putText(frame, f"REPS {reps}", (20, 60),
                 cv2.FONT_HERSHEY_SIMPLEX, 1.6, (255, 255, 255), 3)
