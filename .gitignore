@@ -1,0 +1,6 @@
+venv/
+__pycache__/
+*.pyc
+gate_*.jpg
+deepest.jpg
+*.log
