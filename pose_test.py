@@ -12,11 +12,13 @@ SMOOTH_WINDOW = 5
 SIDE_SWITCH_MARGIN = 0.15
 MODEL_COMPLEXITY = 1
 
-# --- your thresholds, measured from your own body ---
-DOWN_ENTER = 150     # below this = a rep has started
-UP_ENTER   = 165     # above this = standing again, rep over
-GOOD_DEPTH = 100     # bottom at or under this = proper depth
-OK_DEPTH   = 125     # between GOOD and this = almost
+DOWN_ENTER = 150
+UP_ENTER   = 165
+GOOD_DEPTH = 100
+OK_DEPTH   = 125
+
+MIN_PLAUSIBLE = 35      # no bodyweight squat bends the knee tighter than this
+TRUST_VIS     = 0.60    # if vis fell below this mid-rep, don't trust the depth
 
 
 def to_px(landmark, w, h):
@@ -55,6 +57,7 @@ stage = "up"
 reps = 0
 rejected = 0
 rep_min = 999
+rep_worst_vis = 1.0
 rep_valid = True
 verdict = ""
 verdict_colour = (255, 255, 255)
@@ -100,44 +103,59 @@ while cap.isOpened():
 
         if vis < MIN_VISIBILITY:
             angle_history.clear()
-            rep_valid = False            # this rep can't be trusted
+            rep_valid = False
             info = f"TRACKING LOST  vis {vis:.2f}"
         else:
             hip   = to_px(lm[hip_i], w, h)
             knee  = to_px(lm[knee_i], w, h)
             ankle = to_px(lm[ankle_i], w, h)
+            raw_angle = calculate_angle(hip, knee, ankle)
 
-            angle_history.append(calculate_angle(hip, knee, ankle))
+            if raw_angle < MIN_PLAUSIBLE:
+                # physically impossible -> treat as a bad landmark, not a squat
+                info = f"IMPLAUSIBLE {int(raw_angle)} - ignored"
+                rep_valid = False
+            else:
+                angle_history.append(raw_angle)
 
-            if len(angle_history) == SMOOTH_WINDOW:
-                knee_angle = float(np.median(angle_history))
-                info = f"KNEE {int(knee_angle)}   vis {vis:.2f}"
+                if len(angle_history) == SMOOTH_WINDOW:
+                    knee_angle = float(np.median(angle_history))
+                    info = f"KNEE {int(knee_angle)}   vis {vis:.2f}"
 
-                # ---- the rep state machine ----
-                if stage == "up" and knee_angle < DOWN_ENTER:
-                    stage = "down"
-                    rep_min = knee_angle
-                    rep_valid = True
-                elif stage == "down":
-                    rep_min = min(rep_min, knee_angle)
-                    if knee_angle > UP_ENTER:
-                        stage = "up"
-                        if not rep_valid:
-                            rejected += 1
-                            verdict = "NOT COUNTED - tracking lost"
-                            verdict_colour = (0, 0, 255)
-                        else:
-                            reps += 1
-                            if rep_min <= GOOD_DEPTH:
+                    if stage == "up" and knee_angle < DOWN_ENTER:
+                        stage = "down"
+                        rep_min = knee_angle
+                        rep_worst_vis = vis
+                        rep_valid = True
+                    elif stage == "down":
+                        rep_min = min(rep_min, knee_angle)
+                        rep_worst_vis = min(rep_worst_vis, vis)
+
+                        if knee_angle > UP_ENTER:
+                            stage = "up"
+                            if not rep_valid:
+                                rejected += 1
+                                verdict = "NOT COUNTED - tracking lost"
+                                verdict_colour = (0, 0, 255)
+                            elif rep_worst_vis < TRUST_VIS:
+                                rejected += 1
+                                verdict = (f"LOW CONFIDENCE - vis fell to "
+                                           f"{rep_worst_vis:.2f}")
+                                verdict_colour = (0, 0, 255)
+                            elif rep_min <= GOOD_DEPTH:
+                                reps += 1
                                 verdict = f"GOOD DEPTH ({int(rep_min)})"
                                 verdict_colour = (0, 255, 0)
                             elif rep_min <= OK_DEPTH:
+                                reps += 1
                                 verdict = f"ALMOST - deeper ({int(rep_min)})"
                                 verdict_colour = (0, 255, 255)
                             else:
+                                reps += 1
                                 verdict = f"TOO SHALLOW ({int(rep_min)})"
                                 verdict_colour = (0, 165, 255)
-                        print(f"rep end: min={int(rep_min)}  {verdict}")
+                            print(f"rep end: min={int(rep_min)}  "
+                                  f"worst_vis={rep_worst_vis:.2f}  {verdict}")
 
     cv2.putText(frame, f"REPS {reps}", (20, 60),
                 cv2.FONT_HERSHEY_SIMPLEX, 1.6, (255, 255, 255), 3)
@@ -157,5 +175,4 @@ cv2.destroyAllWindows()
 
 print(f"\nReps counted:  {reps}")
 print(f"Reps rejected: {rejected}")
-print(f"Avg FPS:       {frames / time.time() - t0:.1f}"
-      if False else f"Avg FPS:       {frames / (time.time() - t0):.1f}")
+print(f"Avg FPS:       {frames / (time.time() - t0):.1f}")
