@@ -9,6 +9,7 @@ Final-year major project, BE Computer Engineering, Kathmandu Engineering College
 ## Current status
 
 Working:
+- Squat, lunge and push-up defined as data; only the squat thresholds are calibrated against measured angles so far
 - Live pose tracking and knee-angle measurement (squat)
 - Rep counting with a state machine
 - Depth classification: good / almost / too shallow
@@ -22,15 +23,28 @@ In progress:
 
 ## How to run
 
-Requires Python 3.11 on Windows.
+Requires Python 3.10–3.12 on Windows.
 
 ```
-py -3.11 -m venv venv
+py -3.10 -m venv venv
 venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-python pose_test.py                 # webcam
-python pose_test.py squats.mp4      # a recorded video
-python test_angles.py               # unit tests, no camera needed
+Copy-Item config.example.py config.py      # then edit your body weight
+```
+
+```
+python pose_test.py                        # squat, webcam
+python pose_test.py --exercise pushup
+python pose_test.py --video squats.mp4     # run against a recording
+python report.py                           # progress summary from the log
+```
+
+Tests, none of which need a camera:
+
+```
+python test_angles.py
+python test_exercises.py
+python test_calories.py
 ```
 
 Stand side-on to the camera, full body in frame, lens at roughly hip height.
@@ -91,12 +105,16 @@ output.
 ## Project structure
 
 ```
-angles.py        pure geometry, no camera dependency
-coach.py         non-blocking voice and tone feedback
-pose_test.py     capture loop, rep state machine, feedback rules
-test_angles.py   unit tests for the angle maths
+angles.py           pure geometry, imports nothing from MediaPipe or OpenCV
+exercises.py        exercise definitions and depth grading, expressed as data
+coach.py            non-blocking voice and tone feedback
+session.py          per-rep CSV logging
+calories.py         MET-based energy estimation from the rep log
+report.py           progress summary across sessions
+pose_test.py        capture loop and rep state machine
+config.example.py   template for local settings (config.py is gitignored)
+test_*.py           unit tests, all camera-free
 ```
-
 ## Acknowledgements
 
 Pose estimation uses Google MediaPipe. All form-assessment logic, thresholds and
