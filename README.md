@@ -9,6 +9,9 @@ Final-year major project, BE Computer Engineering, Kathmandu Engineering College
 ## Current status
 
 Working:
+- Session logging, progress report, and MET-based calorie estimates
+- Rule-based next-session recommendation that states its reason
+- Workout reminders based on days since the last session
 - Squat, lunge and push-up defined as data; only the squat thresholds are calibrated against measured angles so far
 - Live pose tracking and knee-angle measurement (squat)
 - Rep counting with a state machine
@@ -96,24 +99,27 @@ output.
 
 ## Planned
 
-- Lunge and plank form rules
-- Session logging and a progress tracker
-- Calorie estimation
+- Lunge and push-up thresholds calibrated against measured angles, as the
+  squat was
+- Plank and other hold-based exercises, which need a duration-based state
+  machine rather than rep counting
 - Walk/run tracking with a step counter
-- Workout recommendations
 
 ## Project structure
 
 ```
-angles.py           pure geometry, imports nothing from MediaPipe or OpenCV
-exercises.py        exercise definitions and depth grading, expressed as data
-coach.py            non-blocking voice and tone feedback
-session.py          per-rep CSV logging
-calories.py         MET-based energy estimation from the rep log
-report.py           progress summary across sessions
-pose_test.py        capture loop and rep state machine
-config.example.py   template for local settings (config.py is gitignored)
-test_*.py           unit tests, all camera-free
+angles.py            pure geometry, imports nothing from MediaPipe or OpenCV
+exercises.py         exercise definitions and depth grading, expressed as data
+coach.py             non-blocking voice and tone feedback
+session.py           per-rep CSV logging
+calories.py          MET-based energy estimation from the rep log
+report.py            progress summary across sessions
+recommend.py         rule-based next-session suggestion
+reminders.py         nudge logic with toast and voice fallback
+check_reminder.py    schedulable entry point for reminders
+pose_test.py         capture loop and rep state machine
+config.example.py    template for local settings (config.py is gitignored)
+test_*.py            unit tests, all camera-free
 ```
 ## Acknowledgements
 
