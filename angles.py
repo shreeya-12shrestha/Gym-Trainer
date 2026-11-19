@@ -19,3 +19,17 @@ def calculate_angle(a, b, c):
     if angle > 180.0:
         angle = 360.0 - angle
     return angle
+def side_of_line(a, b, c):
+    """Which side of the line a->c does point b lie on?
+
+    Returns a signed value: positive when b is BELOW the line, negative when
+    above, zero when collinear. In image coordinates y grows downward, which
+    is why "below" is the positive case.
+
+    Used to tell a sagging plank (hips below the shoulder-knee line) from a
+    piked one (hips above it) - the angle at the hip is the same for both.
+    """
+    ax, ay = a
+    bx, by = b
+    cx, cy = c
+    return (cx - ax) * (by - ay) - (cy - ay) * (bx - ax)
