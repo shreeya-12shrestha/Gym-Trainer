@@ -42,7 +42,15 @@ class HoldExercise:
     min_plausible: float = 60
     mode: str = "hold"
 
-
+@dataclass(frozen=True)
+class StepExercise:
+    """Walking or marching on the spot, counted in steps rather than reps."""
+    name: str
+    joints: tuple = ("HIP", "KNEE", "ANKLE")   # hip and ankle give leg length
+    lift_ratio: float = 0.08
+    target_steps: int = 100
+    min_plausible: float = 0.0
+    mode: str = "steps"
 EXERCISES = {
     # thresholds measured from my own squats: standing ~175, full depth ~85
     "squat": Exercise(
@@ -52,8 +60,10 @@ EXERCISES = {
         good_depth=100, ok_depth=125, min_plausible=35,
         cue_good="Good rep",
         cue_almost="Almost, go a little deeper",
+        
         cue_shallow="Too shallow, go deeper",
     ),
+        "walk": StepExercise(name="walk"),
     # starting estimates - to be calibrated the same way the squat was
     "lunge": Exercise(
         name="lunge",
