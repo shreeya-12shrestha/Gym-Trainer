@@ -3,4 +3,6 @@ __pycache__/
 *.pyc
 gate_*.jpg
 deepest.jpg
-*.log
+*.
+sessions.csv
+test_sessions.csv

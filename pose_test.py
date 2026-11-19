@@ -6,6 +6,7 @@ from collections import deque
 from angles import to_px, calculate_angle
 import sys
 from coach import Coach
+from session import SessionLog
 
 mp_pose = mp.solutions.pose
 mp_draw = mp.solutions.drawing_utils
@@ -50,6 +51,7 @@ angle_history = deque(maxlen=SMOOTH_WINDOW)
 current_side = "L"
 stage = "up"
 coach = Coach(min_gap=1.0)
+session = SessionLog()
 reps = 0
 rejected = 0
 rep_min = 999
@@ -164,6 +166,8 @@ while cap.isOpened():
                                           key="shallow")
                             print(f"rep end: min={int(rep_min)}  "
                                   f"worst_vis={rep_worst_vis:.2f}  {verdict}")
+                            session.log_rep(reps, rep_min, verdict,
+                                            rep_worst_vis)
                                   
 
     cv2.putText(frame, f"REPS {reps}", (20, 60),
@@ -181,6 +185,7 @@ while cap.isOpened():
 
 cap.release()
 cv2.destroyAllWindows()
+session.close()
 
 print(f"\nReps counted:  {reps}")
 print(f"Reps rejected: {rejected}")
