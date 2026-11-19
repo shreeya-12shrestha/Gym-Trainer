@@ -6,3 +6,4 @@ deepest.jpg
 *.
 sessions.csv
 test_sessions.csv
+config.py
