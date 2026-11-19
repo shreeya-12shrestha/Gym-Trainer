@@ -5,7 +5,8 @@ from collections import deque
 import cv2
 import numpy as np
 import mediapipe as mp
-
+from recommend import recommend
+from report import load
 from angles import to_px, calculate_angle
 from coach import Coach
 from exercises import EXERCISES, grade
@@ -58,7 +59,14 @@ else:
 
 print(f"exercise: {ex.name}   good <= {ex.good_depth}   "
       f"almost <= {ex.ok_depth}")
-
+try:
+    rec_ex, rec_target, rec_why = recommend(load("sessions.csv"))
+    if rec_target:
+        print(f"suggested today: {rec_target} {rec_ex}s - {rec_why}")
+    else:
+        print(f"suggested today: rest - {rec_why}")
+except FileNotFoundError:
+    pass                       # first ever run, no log to read
 angle_history = deque(maxlen=SMOOTH_WINDOW)
 current_side = "L"
 stage = "up"
