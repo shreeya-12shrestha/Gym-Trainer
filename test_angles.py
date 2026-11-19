@@ -1,5 +1,19 @@
 from angles import calculate_angle
+from angles import side_of_line
 
+print()
+SIDE_CASES = [
+    ("hip below the line", (0, 0), (50, 10), (100, 0), "below"),
+    ("hip above the line", (0, 0), (50, -10), (100, 0), "above"),
+    ("hip on the line",    (0, 0), (50, 0),  (100, 0), "flat"),
+    ("works when tilted",  (0, 0), (50, 60), (100, 100), "below"),
+]
+
+for name, a, b, c, want in SIDE_CASES:
+    s = side_of_line(a, b, c)
+    got = "below" if s > 0 else "above" if s < 0 else "flat"
+    print(f"{'PASS' if got == want else 'FAIL'}  {name:<22} "
+          f"expected {want:<6} got {got}")
 # Each case: name, hip, knee, ankle, expected angle at the knee.
 # Remember y grows DOWNWARD in image coordinates.
 CASES = [
