@@ -1,4 +1,5 @@
 import argparse
+import math
 import time
 from collections import deque
 
@@ -12,6 +13,7 @@ from exercises import EXERCISES, grade, grade_hold
 from recommend import recommend
 from report import load
 from session import SessionLog
+from steps import StepCounter
 
 mp_pose = mp.solutions.pose
 mp_draw = mp.solutions.drawing_utils
@@ -21,7 +23,8 @@ SMOOTH_WINDOW = 5
 SIDE_SWITCH_MARGIN = 0.15
 MODEL_COMPLEXITY = 1
 TRUST_VIS = 0.60
-MIN_LOGGED_HOLD = 3.0        # holds shorter than this aren't worth recording
+MIN_LOGGED_HOLD = 3.0
+STEP_MILESTONE = 25
 
 parser = argparse.ArgumentParser(description="Exercise form checker")
 parser.add_argument("--exercise", default="squat", choices=sorted(EXERCISES))
@@ -72,7 +75,7 @@ except FileNotFoundError:
 angle_history = deque(maxlen=SMOOTH_WINDOW)
 current_side = "L"
 
-# rep mode state
+# rep mode
 stage = "up"
 reps = 0
 rejected = 0
@@ -80,12 +83,16 @@ rep_min = 999.0
 rep_worst_vis = 1.0
 rep_valid = True
 
-# hold mode state
+# hold mode
 hold_start = None
 hold_worst_vis = 1.0
 best_hold = 0.0
 holds = 0
 target_said = False
+
+# step mode
+counter = StepCounter(lift_ratio=ex.lift_ratio) if ex.mode == "steps" else None
+walk_worst_vis = 1.0
 
 verdict = ""
 verdict_colour = (255, 255, 255)
@@ -97,7 +104,6 @@ session = SessionLog(exercise=ex.name)
 
 
 def end_hold(angle_now):
-    """Close an in-progress hold and log it if it was long enough."""
     global hold_start, holds, target_said
     if hold_start is None:
         return
@@ -151,96 +157,121 @@ while cap.isOpened():
                 end_hold(0.0)
         else:
             p1, p2, p3 = (to_px(lm[i], w, h) for i in ids)
-            raw_angle = calculate_angle(p1, p2, p3)
 
-            if raw_angle < ex.min_plausible:
-                info = f"IMPLAUSIBLE {int(raw_angle)} - ignored"
-                rep_valid = False
+            # ---------------- step mode ----------------
+            if ex.mode == "steps":
+                walk_worst_vis = min(walk_worst_vis, vis)
+                left_ankle_y = to_px(lm[LEFT_IDS[2]], w, h)[1]
+                right_ankle_y = to_px(lm[RIGHT_IDS[2]], w, h)[1]
+                leg_px = math.dist(p1, p3)       # hip to ankle, current side
+
+                if counter.update(left_ankle_y, right_ankle_y, leg_px):
+                    if counter.steps % STEP_MILESTONE == 0:
+                        coach.say(f"{counter.steps} steps", key="milestone")
+                    if counter.steps == ex.target_steps:
+                        coach.say("Step target reached", key="target")
+
+                info = f"steps {counter.steps}   vis {vis:.2f}"
+                verdict = f"target {ex.target_steps}"
+                verdict_colour = ((0, 255, 0)
+                                  if counter.steps >= ex.target_steps
+                                  else (255, 255, 255))
+
             else:
-                angle_history.append(raw_angle)
+                raw_angle = calculate_angle(p1, p2, p3)
 
-                if len(angle_history) == SMOOTH_WINDOW:
-                    angle = float(np.median(angle_history))
+                if raw_angle < ex.min_plausible:
+                    info = f"IMPLAUSIBLE {int(raw_angle)} - ignored"
+                    rep_valid = False
+                else:
+                    angle_history.append(raw_angle)
 
-                    # ---------------- hold mode ----------------
-                    if ex.mode == "hold":
-                        label, cue = grade_hold(ex, angle,
-                                                side_of_line(p1, p2, p3))
-                        now = time.time()
+                    if len(angle_history) == SMOOTH_WINDOW:
+                        angle = float(np.median(angle_history))
 
-                        if label == "GOOD":
-                            if hold_start is None:
-                                hold_start = now
-                                hold_worst_vis = vis
-                            hold_worst_vis = min(hold_worst_vis, vis)
-                            held = now - hold_start
-                            best_hold = max(best_hold, held)
-                            info = f"holding {held:.0f}s   vis {vis:.2f}"
-                            verdict_colour = (0, 255, 0)
-                            if held >= ex.target_seconds and not target_said:
-                                coach.say(
-                                    f"Target reached, "
-                                    f"{int(ex.target_seconds)} seconds",
-                                    key="target")
-                                target_said = True
-                        else:
-                            end_hold(angle)
-                            info = f"{label} {int(angle)}   vis {vis:.2f}"
-                            verdict_colour = (0, 165, 255)
-                            coach.beep(400, 200, key="holdbad")
-                            coach.say(cue, key=label)
+                        # ---------------- hold mode ----------------
+                        if ex.mode == "hold":
+                            label, cue = grade_hold(ex, angle,
+                                                    side_of_line(p1, p2, p3))
+                            now = time.time()
 
-                        verdict = f"best hold {best_hold:.0f}s"
-
-                    # ---------------- rep mode ----------------
-                    else:
-                        info = f"{ex.joints[1]} {int(angle)}   vis {vis:.2f}"
-
-                        if stage == "up" and angle < ex.down_enter:
-                            stage = "down"
-                            rep_min = angle
-                            rep_worst_vis = vis
-                            rep_valid = True
-                        elif stage == "down":
-                            rep_min = min(rep_min, angle)
-                            rep_worst_vis = min(rep_worst_vis, vis)
-
-                            if angle > ex.up_enter:
-                                stage = "up"
-                                if not rep_valid:
-                                    rejected += 1
-                                    verdict = "NOT COUNTED - tracking lost"
-                                    verdict_colour = (0, 0, 255)
-                                    coach.say("I could not see that rep",
-                                              key="badrep")
-                                elif rep_worst_vis < TRUST_VIS:
-                                    rejected += 1
-                                    verdict = (f"LOW CONFIDENCE - vis fell to "
-                                               f"{rep_worst_vis:.2f}")
-                                    verdict_colour = (0, 0, 255)
+                            if label == "GOOD":
+                                if hold_start is None:
+                                    hold_start = now
+                                    hold_worst_vis = vis
+                                hold_worst_vis = min(hold_worst_vis, vis)
+                                held = now - hold_start
+                                best_hold = max(best_hold, held)
+                                info = f"holding {held:.0f}s   vis {vis:.2f}"
+                                verdict_colour = (0, 255, 0)
+                                if (held >= ex.target_seconds
+                                        and not target_said):
                                     coach.say(
-                                        "I could not see that rep clearly",
-                                        key="badrep")
-                                else:
-                                    reps += 1
-                                    label, cue = grade(ex, rep_min)
-                                    verdict = f"{label} ({int(rep_min)})"
-                                    if label == "GOOD":
-                                        verdict_colour = (0, 255, 0)
-                                        coach.beep(1000, 120, key="good")
-                                    elif label == "ALMOST":
-                                        verdict_colour = (0, 255, 255)
-                                    else:
-                                        verdict_colour = (0, 165, 255)
-                                        coach.beep(400, 300, key="shallow")
-                                    coach.say(cue, key=label)
-                                    session.log_rep(reps, rep_min, verdict,
-                                                    rep_worst_vis)
-                                print(f"rep end: min={int(rep_min)}  "
-                                      f"worst_vis={rep_worst_vis:.2f}  "
-                                      f"{verdict}")
+                                        f"Target reached, "
+                                        f"{int(ex.target_seconds)} seconds",
+                                        key="target")
+                                    target_said = True
+                            else:
+                                end_hold(angle)
+                                info = f"{label} {int(angle)}   vis {vis:.2f}"
+                                verdict_colour = (0, 165, 255)
+                                coach.beep(400, 200, key="holdbad")
+                                coach.say(cue, key=label)
 
-    if ex.mode == "hold":
+                            verdict = f"best hold {best_hold:.0f}s"
+
+                        # ---------------- rep mode ----------------
+                        else:
+                            info = (f"{ex.joints[1]} {int(angle)}   "
+                                    f"vis {vis:.2f}")
+
+                            if stage == "up" and angle < ex.down_enter:
+                                stage = "down"
+                                rep_min = angle
+                                rep_worst_vis = vis
+                                rep_valid = True
+                            elif stage == "down":
+                                rep_min = min(rep_min, angle)
+                                rep_worst_vis = min(rep_worst_vis, vis)
+
+                                if angle > ex.up_enter:
+                                    stage = "up"
+                                    if not rep_valid:
+                                        rejected += 1
+                                        verdict = "NOT COUNTED - tracking lost"
+                                        verdict_colour = (0, 0, 255)
+                                        coach.say("I could not see that rep",
+                                                  key="badrep")
+                                    elif rep_worst_vis < TRUST_VIS:
+                                        rejected += 1
+                                        verdict = (f"LOW CONFIDENCE - vis "
+                                                   f"fell to {rep_worst_vis:.2f}")
+                                        verdict_colour = (0, 0, 255)
+                                        coach.say(
+                                            "I could not see that rep clearly",
+                                            key="badrep")
+                                    else:
+                                        reps += 1
+                                        label, cue = grade(ex, rep_min)
+                                        verdict = f"{label} ({int(rep_min)})"
+                                        if label == "GOOD":
+                                            verdict_colour = (0, 255, 0)
+                                            coach.beep(1000, 120, key="good")
+                                        elif label == "ALMOST":
+                                            verdict_colour = (0, 255, 255)
+                                        else:
+                                            verdict_colour = (0, 165, 255)
+                                            coach.beep(400, 300, key="shallow")
+                                        coach.say(cue, key=label)
+                                        session.log_rep(reps, rep_min, verdict,
+                                                        rep_worst_vis)
+                                    print(f"rep end: min={int(rep_min)}  "
+                                          f"worst_vis={rep_worst_vis:.2f}  "
+                                          f"{verdict}")
+
+    if ex.mode == "steps":
+        headline = f"{ex.name.upper()}  STEPS {counter.steps}"
+    elif ex.mode == "hold":
         headline = f"{ex.name.upper()}  best {best_hold:.0f}s"
     else:
         headline = f"{ex.name.upper()}  REPS {reps}"
@@ -258,12 +289,16 @@ while cap.isOpened():
 
 if ex.mode == "hold":
     end_hold(0.0)
+elif ex.mode == "steps" and counter.steps:
+    session.log_rep(1, 0.0, f"WALK {counter.steps} steps", walk_worst_vis)
 
 cap.release()
 cv2.destroyAllWindows()
 session.close()
 
-if ex.mode == "hold":
+if ex.mode == "steps":
+    print(f"\nSteps counted: {counter.steps}")
+elif ex.mode == "hold":
     print(f"\nHolds logged:  {holds}")
     print(f"Best hold:     {best_hold:.0f}s")
 else:
