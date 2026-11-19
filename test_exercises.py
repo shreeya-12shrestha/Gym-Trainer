@@ -27,9 +27,11 @@ check("plank 150, hips below = sag", grade_hold(plank, 150, 500)[0], "SAG")
 check("plank 150, hips above = pike", grade_hold(plank, 150, -500)[0], "PIKE")
 
 # ---- every definition must be internally sane ----
+# ---- every definition must be internally sane ----
 for key, ex in EXERCISES.items():
     check(f"{key}: three joints named", len(ex.joints), 3)
-    check(f"{key}: has a valid mode", ex.mode in ("rep", "hold"), True)
+    check(f"{key}: has a valid mode",
+          ex.mode in ("rep", "hold", "steps"), True)
 
     if ex.mode == "rep":
         check(f"{key}: good_depth < ok_depth",
@@ -40,12 +42,19 @@ for key, ex in EXERCISES.items():
               ex.down_enter < ex.up_enter, True)
         check(f"{key}: three cues present",
               all([ex.cue_good, ex.cue_almost, ex.cue_shallow]), True)
-    else:
+
+    elif ex.mode == "hold":
         check(f"{key}: straight_min in range",
               0 < ex.straight_min <= 180, True)
         check(f"{key}: positive target time",
               ex.target_seconds > 0, True)
         check(f"{key}: three cues present",
               all([ex.cue_good, ex.cue_sag, ex.cue_pike]), True)
+
+    else:
+        check(f"{key}: lift ratio is a sane fraction",
+              0 < ex.lift_ratio < 1, True)
+        check(f"{key}: positive step target",
+              ex.target_steps > 0, True)
 
 print(f"\n{failures} failed")
