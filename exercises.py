@@ -5,6 +5,10 @@ plain strings and the capture loop maps them to landmarks, which means this
 file and its rules can be unit tested with no camera involved.
 
 Angles are measured at the MIDDLE joint of the three listed.
+
+Two kinds of exercise:
+  Exercise      judged by reps and depth      (squat, lunge, push-up)
+  HoldExercise  judged by how long it's held  (plank)
 """
 
 from dataclasses import dataclass
@@ -22,6 +26,21 @@ class Exercise:
     cue_good: str
     cue_almost: str
     cue_shallow: str
+    mode: str = "rep"
+
+
+@dataclass(frozen=True)
+class HoldExercise:
+    """An exercise judged by how long a position is held, not by reps."""
+    name: str
+    joints: tuple
+    cue_good: str
+    cue_sag: str
+    cue_pike: str
+    straight_min: float = 165    # at or above this, the body is straight
+    target_seconds: float = 30
+    min_plausible: float = 60
+    mode: str = "hold"
 
 
 EXERCISES = {
@@ -54,13 +73,36 @@ EXERCISES = {
         cue_almost="Chest a little lower",
         cue_shallow="Not deep enough, bend the elbows more",
     ),
+    "plank": HoldExercise(
+        name="plank",
+        joints=("SHOULDER", "HIP", "KNEE"),
+        cue_good="Good plank, hold it",
+        cue_sag="Hips are dropping, lift them",
+        cue_pike="Hips too high, lower them",
+        straight_min=165,
+        target_seconds=30,
+    ),
 }
 
 
 def grade(exercise, min_angle):
-    """Return (verdict_label, spoken_cue) for the deepest angle in a rep."""
+    """Judge a completed rep. Returns (label, spoken cue)."""
     if min_angle <= exercise.good_depth:
         return "GOOD", exercise.cue_good
     if min_angle <= exercise.ok_depth:
         return "ALMOST", exercise.cue_almost
     return "SHALLOW", exercise.cue_shallow
+
+
+def grade_hold(exercise, angle, hip_side):
+    """Judge a held position. Returns (label, spoken cue).
+
+    angle:    the angle at the middle joint
+    hip_side: side_of_line(proximal, middle, distal) - positive means the
+              middle joint has dropped below the line between the other two
+    """
+    if angle >= exercise.straight_min:
+        return "GOOD", exercise.cue_good
+    if hip_side > 0:
+        return "SAG", exercise.cue_sag
+    return "PIKE", exercise.cue_pike
