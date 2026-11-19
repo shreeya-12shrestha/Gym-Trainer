@@ -11,6 +11,7 @@ Final-year major project, BE Computer Engineering, Kathmandu Engineering College
 Working:
 - Session logging, progress report, and MET-based calorie estimates
 - Rule-based next-session recommendation that states its reason
+- Plank as a hold-based exercise, timing the hold and distinguishing a sagging back from a piked one by which side of the shoulder-knee line the hip sits on
 - Workout reminders based on days since the last session
 - Squat, lunge and push-up defined as data; only the squat thresholds are calibrated against measured angles so far
 - Live pose tracking and knee-angle measurement (squat)
@@ -26,6 +27,7 @@ In progress:
 
 ## How to run
 
+python pose_test.py --exercise plank       # timed hold instead of reps
 Requires Python 3.10–3.12 on Windows.
 
 ```
@@ -96,13 +98,13 @@ output.
 - Single camera, side view only; depth cannot be judged from a frontal view
 - Camera height and room lighting materially affect tracking reliability
 - Squat only at present
+- Timed holds are logged in the same CSV columns as reps, so `report.py` shows
+  a plank's hip angle under a column labelled as depth
 
 ## Planned
 
 - Lunge and push-up thresholds calibrated against measured angles, as the
   squat was
-- Plank and other hold-based exercises, which need a duration-based state
-  machine rather than rep counting
 - Walk/run tracking with a step counter
 
 ## Project structure
