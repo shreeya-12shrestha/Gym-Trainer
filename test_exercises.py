@@ -1,5 +1,5 @@
 from exercises import EXERCISES, grade, grade_hold
-
+import sys
 failures = 0
 
 
@@ -58,3 +58,4 @@ for key, ex in EXERCISES.items():
               ex.target_steps > 0, True)
 
 print(f"\n{failures} failed")
+sys.exit(1 if failures else 0)
