@@ -55,6 +55,19 @@ check("14 day layoff -> reduced volume", reps, 14)
 rows = session("2026-11-18", ["GOOD DEPTH (90)"] * 10, exercise="pushup")
 ex, _, _ = recommend(rows, TODAY)
 check("suggests the last exercise trained", ex, "pushup")
+# non-rep rows must not be counted as reps
+mixed = (session("2026-11-18", ["GOOD DEPTH (90)"] * 10)
+         + [{"timestamp": "2026-11-18T10:05:00", "exercise": "walk",
+             "kind": "steps", "verdict": "WALK 120 steps"}])
+for r in mixed[:10]:
+    r["kind"] = "rep"
+_, reps, _ = recommend(mixed, TODAY)
+check("walk rows don't inflate the rep count", reps, 11)
 
+only_planks = [{"timestamp": "2026-11-18T10:00:00", "exercise": "plank",
+                "kind": "hold", "verdict": "HOLD 34s"}]
+ex_name, reps, _ = recommend(only_planks, TODAY)
+check("plank-only history falls back to baseline",
+      (ex_name, reps), ("squat", 10))
 print(f"\n{failures} failed")
 sys.exit(1 if failures else 0)
