@@ -1,5 +1,6 @@
 from datetime import date
 from recommend import recommend
+import sys
 
 TODAY = date(2026, 11, 19)
 failures = 0
@@ -56,3 +57,4 @@ ex, _, _ = recommend(rows, TODAY)
 check("suggests the last exercise trained", ex, "pushup")
 
 print(f"\n{failures} failed")
+sys.exit(1 if failures else 0)
