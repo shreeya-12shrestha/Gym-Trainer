@@ -1,0 +1,32 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # only numpy is needed: every test file avoids MediaPipe, OpenCV
+      # and the Windows-only audio modules
+      - run: pip install numpy
+
+      - name: angle maths
+        run: python test_angles.py
+      - name: exercise definitions
+        run: python test_exercises.py
+      - name: calorie estimation
+        run: python test_calories.py
+      - name: recommender rules
+        run: python test_recommend.py
+      - name: step counter
+        run: python test_steps.py
+      - name: reminder timing
+        run: python test_reminders.py

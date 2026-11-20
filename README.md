@@ -1,3 +1,4 @@
+![tests](https://github.com/shreeya-12shrestha/Gym-Trainer/actions/workflows/tests.yml/badge.svg)
 # Gym Trainer — Computer Vision Squat Form Checker
 
 A real-time form checker for bodyweight exercises. A webcam tracks the body,
