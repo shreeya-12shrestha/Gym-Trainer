@@ -62,7 +62,13 @@ else:
     print(f"video file: {args.video}")
 
 print(f"exercise: {ex.name}  ({ex.mode})")
-
+if not cap.isOpened():
+    raise SystemExit(
+        "Could not open the camera.\n"
+        "  - is another app using it (Teams, Zoom, browser)?\n"
+        "  - Windows Settings > Privacy & security > Camera, "
+        "allow desktop apps\n"
+        "  - or pass --video <file> to run against a recording instead")
 try:
     rec_ex, rec_target, rec_why = recommend(load("sessions.csv"))
     if rec_target:
