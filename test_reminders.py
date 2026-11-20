@@ -1,6 +1,6 @@
 from datetime import date
 from reminders import reminder_text, days_since_last
-
+import sys
 TODAY = date(2026, 11, 19)
 failures = 0
 
@@ -37,3 +37,4 @@ check("twelve days ago -> softest",   title_for("2026-11-07"),
       "Your squats miss you")
 
 print(f"\n{failures} failed")
+sys.exit(1 if failures else 0)

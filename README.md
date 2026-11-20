@@ -102,7 +102,6 @@ output.
 - Single camera, side view only; depth cannot be judged from a frontal view
 - Camera height and room lighting materially affect tracking reliability
 - Squat only at present
-- Timed holds are logged in the same CSV columns as reps, so `report.py` shows a plank's hip angle under a column labelled as depth
 - Step counting works only in front of the camera; distance travelled would need GPS or an accelerometer, not a fixed webcam
 
 ## Planned
