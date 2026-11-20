@@ -9,6 +9,8 @@ Final-year major project, BE Computer Engineering, Kathmandu Engineering College
 ## Current status
 
 Working:
+- Step counting for walking or marching on the spot, with the detection
+  threshold scaled to leg length so it works at any distance from the camera
 - Session logging, progress report, and MET-based calorie estimates
 - Rule-based next-session recommendation that states its reason
 - Plank as a hold-based exercise, timing the hold and distinguishing a sagging back from a piked one by which side of the shoulder-knee line the hip sits on
@@ -26,6 +28,7 @@ In progress:
 - Additional exercises (lunge, plank)
 
 ## How to run
+python pose_test.py --exercise walk        # step counting
 
 python pose_test.py --exercise plank       # timed hold instead of reps
 Requires Python 3.10–3.12 on Windows.
@@ -98,14 +101,13 @@ output.
 - Single camera, side view only; depth cannot be judged from a frontal view
 - Camera height and room lighting materially affect tracking reliability
 - Squat only at present
-- Timed holds are logged in the same CSV columns as reps, so `report.py` shows
-  a plank's hip angle under a column labelled as depth
+- Timed holds are logged in the same CSV columns as reps, so `report.py` shows a plank's hip angle under a column labelled as depth
+- Step counting works only in front of the camera; distance travelled would need GPS or an accelerometer, not a fixed webcam
 
 ## Planned
 
-- Lunge and push-up thresholds calibrated against measured angles, as the
-  squat was
-- Walk/run tracking with a step counter
+- Lunge and push-up thresholds calibrated against measured angles, as the squat was
+- Split the capture loop's three modes into separate handler classes if a fourth mode is added; at three it is still followable
 
 ## Project structure
 
