@@ -100,17 +100,18 @@ frames = 0
 t0 = time.time()
 
 coach = Coach(min_gap=1.0)
-session = SessionLog(exercise=ex.name)
+session = SessionLog(exercise=ex.name, kind=ex.mode)
 
 
-def end_hold(angle_now):
+def end_hold():
+    """Close an in-progress hold and log it if it was long enough."""
     global hold_start, holds, target_said
     if hold_start is None:
         return
     held = time.time() - hold_start
     if held >= MIN_LOGGED_HOLD:
         holds += 1
-        session.log_rep(holds, angle_now, f"HOLD {held:.0f}s", hold_worst_vis)
+        session.log(holds, held, f"HOLD {held:.0f}s", hold_worst_vis)
         print(f"hold ended: {held:.0f}s  worst_vis={hold_worst_vis:.2f}")
     hold_start = None
     target_said = False
@@ -154,7 +155,7 @@ while cap.isOpened():
             info = f"TRACKING LOST  vis {vis:.2f}"
             coach.say("I cannot see you", key="novis")
             if ex.mode == "hold":
-                end_hold(0.0)
+                end_hold()
         else:
             p1, p2, p3 = (to_px(lm[i], w, h) for i in ids)
 
@@ -163,7 +164,7 @@ while cap.isOpened():
                 walk_worst_vis = min(walk_worst_vis, vis)
                 left_ankle_y = to_px(lm[LEFT_IDS[2]], w, h)[1]
                 right_ankle_y = to_px(lm[RIGHT_IDS[2]], w, h)[1]
-                leg_px = math.dist(p1, p3)       # hip to ankle, current side
+                leg_px = math.dist(p1, p3)
 
                 if counter.update(left_ankle_y, right_ankle_y, leg_px):
                     if counter.steps % STEP_MILESTONE == 0:
@@ -212,7 +213,7 @@ while cap.isOpened():
                                         key="target")
                                     target_said = True
                             else:
-                                end_hold(angle)
+                                end_hold()
                                 info = f"{label} {int(angle)}   vis {vis:.2f}"
                                 verdict_colour = (0, 165, 255)
                                 coach.beep(400, 200, key="holdbad")
@@ -244,8 +245,9 @@ while cap.isOpened():
                                                   key="badrep")
                                     elif rep_worst_vis < TRUST_VIS:
                                         rejected += 1
-                                        verdict = (f"LOW CONFIDENCE - vis "
-                                                   f"fell to {rep_worst_vis:.2f}")
+                                        verdict = (
+                                            f"LOW CONFIDENCE - vis fell to "
+                                            f"{rep_worst_vis:.2f}")
                                         verdict_colour = (0, 0, 255)
                                         coach.say(
                                             "I could not see that rep clearly",
@@ -263,8 +265,8 @@ while cap.isOpened():
                                             verdict_colour = (0, 165, 255)
                                             coach.beep(400, 300, key="shallow")
                                         coach.say(cue, key=label)
-                                        session.log_rep(reps, rep_min, verdict,
-                                                        rep_worst_vis)
+                                        session.log(reps, rep_min, verdict,
+                                                    rep_worst_vis)
                                     print(f"rep end: min={int(rep_min)}  "
                                           f"worst_vis={rep_worst_vis:.2f}  "
                                           f"{verdict}")
@@ -288,9 +290,10 @@ while cap.isOpened():
         break
 
 if ex.mode == "hold":
-    end_hold(0.0)
+    end_hold()
 elif ex.mode == "steps" and counter.steps:
-    session.log_rep(1, 0.0, f"WALK {counter.steps} steps", walk_worst_vis)
+    session.log(1, counter.steps,
+                f"WALK {counter.steps} steps", walk_worst_vis)
 
 cap.release()
 cv2.destroyAllWindows()
