@@ -31,6 +31,7 @@ def good_ratio(reps):
 def recommend(rows, today=None):
     """Return (exercise, target_reps, reason). target_reps of 0 means rest."""
     today = today or date.today()
+    rows = [r for r in rows if r.get("kind", "rep") == "rep"]
 
     if not rows:
         return ("squat", BASELINE_REPS,
@@ -63,7 +64,6 @@ def recommend(rows, today=None):
 
     return (exercise, last_reps,
             f"{ratio:.0%} of last session reached depth, repeat the same")
-
 
 if __name__ == "__main__":
     import sys
