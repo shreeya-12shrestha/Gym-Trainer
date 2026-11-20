@@ -1,4 +1,5 @@
 from steps import StepCounter
+import sys
 
 LEG = 400.0          # leg length in pixels; threshold = 0.08 * 400 = 32 px
 failures = 0
@@ -46,3 +47,4 @@ check("zero leg length is handled, not crashed",
       run([-50, 50] * 5, leg=0), 0)
 
 print(f"\n{failures} failed")
+sys.exit(1 if failures else 0)
